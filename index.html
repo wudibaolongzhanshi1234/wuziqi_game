@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>奶蛙五子棋</title>
+<style>
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: sans-serif;
+}
+body{
+    background: #f0e6d2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding:30px;
+}
+
+#startPanel{
+    text-align:center;
+}
+#startPanel h1{
+    font-size:48px;
+    color:#222;
+    margin-bottom:40px;
+}
+.diffBtn{
+    display:block;
+    width:260px;
+    height:70px;
+    margin:18px auto;
+    font-size:26px;
+    border-radius:14px;
+    border:none;
+    background:#deb887;
+    color:#222;
+    font-weight:bold;
+    cursor:pointer;
+}
+.diffBtn:hover{
+    background:#d2a870;
+}
+
+#gamePanel{
+    display:none;
+    text-align:center;
+}
+#tip{
+    font-size:24px;
+    margin-bottom:12px;
+    font-weight:bold;
+    color:#222;
+}
+#board{
+    background:#deb887;
+    border:3px solid #8b4513;
+}
+.btn-group{
+    margin-top:16px;
+    display:flex;
+    gap:12px;
+    justify-content:center;
+}
+.gameBtn{
+    padding:10px 20px;
+    font-size:18px;
+    border-radius:10px;
+    border:none;
+    background:#deb887;
+    cursor:pointer;
+    font-weight:bold;
+}
+.gameBtn:hover{
+    background:#d2a870;
+}
+
+/* 弹窗 */
+#winModal{
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.5);
+    z-index:999;
+}
+#winBox{
+    width:90%;
+    max-width:600px;
+    margin:100px auto 0;
+    background:#fff8e7;
+    padding:30px 40px;
+    border-radius:20px;
+    text-align:center;
+    box-shadow:0 10px 30px rgba(0,0,0,0.2);
+    border:4px solid #ffd24d;
+}
+#victoryImg{
+    width:420px;
+    max-width:100%;
+    border-radius:12px;
+    margin-bottom:16px;
+}
+#winBox h2{
+    font-size:40px;
+    color:#e67e22;
+    margin-bottom:12px;
+}
+#winBox p{
+    font-size:20px;
+    color:#444;
+    margin-bottom:24px;
+}
+.winBtn{
+    padding:12px 28px;
+    font-size:20px;
+    border-radius:10px;
+    border:none;
+    margin:0 10px;
+    cursor:pointer;
+    font-weight:bold;
+}
+#againBtn{
+    background:#ffd24d;
+    color:#222;
+}
+#backMenuBtn{
+    background:#deb887;
+    color:#222;
+}
+</style>
+</head>
+<body>
+
+<div id="startPanel">
+    <h1>奶蛙五子棋</h1>
+    <button class="diffBtn" onclick="startGame('easy')">简单难度</button>
+    <button class="diffBtn" onclick="startGame('medium')">中等难度</button>
+    <button class="diffBtn" onclick="startGame('hard')">困难难度</button>
+</div>
+
+<div id="gamePanel">
+    <div id="tip">轮到：玩家（白棋）</div>
+    <canvas id="board" width="600" height="600"></canvas>
+    <div class="btn-group">
+        <button class="gameBtn" onclick="backToMenu()">上一个界面</button>
+        <button class="gameBtn" onclick="restartGame()">重来</button>
+        <button class="gameBtn" onclick="exitGame()">退出</button>
+    </div>
+</div>
+
+<div id="winModal">
+    <div id="winBox">
+        <img id="victoryImg" src="victory.png" alt="恭喜胜利">
+        <h2>恭喜胜利</h2>
+        <p>你击败了AI黑棋！</p>
+        <button class="winBtn" id="againBtn">再来一局</button>
+        <button class="winBtn" id="backMenuBtn">返回难度</button>
+    </div>
+</div>
+
+<script>
+const blackImg = new Image();
+blackImg.src = "egg_black.png";
+const whiteImg = new Image();
+whiteImg.src = "egg_white.png";
+
+const blackAudio = new Audio("black_sound.mp3");
+const whiteAudio = new Audio("white_sound.mp3");
+
+const canvas = document.getElementById("board");
+const ctx = canvas.getContext("2d");
+const size = 15;
+const cell = 40;
+const offset = 20;
+let board = [];
+let gameOver = false;
+let aiLevel = "medium";
+const PLAYER = 2;
+const AI = 1;
+const tipDom = document.getElementById("tip");
+const startPanel = document.getElementById("startPanel");
+const gamePanel = document.getElementById("gamePanel");
+const winModal = document.getElementById("winModal");
+
+blackImg.onerror = function(){
+    console.log("黑棋子图片缺失");
+}
+whiteImg.onerror = function(){
+    console.log("白棋子图片缺失");
+}
+
+function startGame(level){
+    aiLevel = level;
+    board = Array(size).fill().map(()=>Array(size).fill(0));
+    gameOver = false;
+    tipDom.innerText = "轮到：玩家（白棋）";
+    winModal.style.display = "none";
+    startPanel.style.display = "none";
+    gamePanel.style.display = "block";
+    drawBoard();
+}
+function backToMenu(){
+    winModal.style.display = "none";
+    gamePanel.style.display = "none";
+    startPanel.style.display = "block";
+}
+function restartGame(){
+    board = Array(size).fill().map(()=>Array(size).fill(0));
+    gameOver = false;
+    tipDom.innerText = "轮到：玩家（白棋）";
+    winModal.style.display = "none";
+    drawBoard();
+}
+function exitGame(){
+    winModal.style.display = "none";
+    gamePanel.style.display = "none";
+    startPanel.style.display = "block";
+}
+
+document.getElementById("againBtn").onclick = restartGame;
+document.getElementById("backMenuBtn").onclick = backToMenu;
+
+function drawBoard(){
+    ctx.fillStyle="#deb887";
+    ctx.fillRect(0,0,600,600);
+    ctx.strokeStyle="#222";
+    ctx.lineWidth=1;
+    for(let i=0;i<size;i++){
+        ctx.beginPath();
+        ctx.moveTo(offset+i*cell, offset);
+        ctx.lineTo(offset+i*cell, offset+(size-1)*cell);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(offset, offset+i*cell);
+        ctx.lineTo(offset+(size-1)*cell, offset+i*cell);
+        ctx.stroke();
+    }
+    for(let r=0;r<size;r++){
+        for(let c=0;c<size;c++){
+            if(board[r][c]===AI && blackImg.complete){
+                ctx.drawImage(blackImg, offset+c*cell-18, offset+r*cell-18, 36, 36);
+            }else if(board[r][c]===PLAYER && whiteImg.complete){
+                ctx.drawImage(whiteImg, offset+c*cell-18, offset+r*cell-18, 36, 36);
+            }
+        }
+    }
+}
+
+function checkWin(r,c,player){
+    const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+    for(let [dr,dc] of dirs){
+        let cnt=1;
+        for(let i=1;i<5;i++){
+            const nr=r+dr*i;
+            const nc=c+dc*i;
+            if(nr>=0&&nr<size&&nc>=0&&nc<size&&board[nr][nc]===player) cnt++;
+            else break;
+        }
+        for(let i=1;i<5;i++){
+            const nr=r-dr*i;
+            const nc=c-dc*i;
+            if(nr>=0&&nr<size&&nc>=0&&nc<size&&board[nr][nc]===player) cnt++;
+            else break;
+        }
+        if(cnt>=5) return true;
+    }
+    return false;
+}
+
+function getScore(r,c,player){
+    const opp = player === AI ? PLAYER : AI;
+    const dirs=[[1,0],[0,1],[1,1],[1,-1]];
+    let maxScore = 0;
+    for(let [dr,dc] of dirs){
+        let self = 0;
+        let leftOpen = false, rightOpen = false;
+        for(let i=1;i<5;i++){
+            const nr=r+dr*i;
+            const nc=c+dc*i;
+            if(nr<0||nr>=size||nc<0||nc>=size) break;
+            if(board[nr][nc]===player) self++;
+            else if(board[nr][nc]===opp) break;
+            else {rightOpen=true;break;}
+        }
+        for(let i=1;i<5;i++){
+            const nr=r-dr*i;
+            const nc=c-dc*i;
+            if(nr<0||nr>=size||nc<0||nc>=size) break;
+            if(board[nr][nc]===player) self++;
+            else if(board[nr][nc]===opp) break;
+            else {leftOpen=true;break;}
+        }
+        let score = 0;
+        const total = self;
+        if(total>=4) score = 100000;
+        else if(total===3 && leftOpen && rightOpen) score = 10000;
+        else if(total===3 && (leftOpen||rightOpen)) score = 1000;
+        else if(total===2 && leftOpen && rightOpen) score = 500;
+        else if(total===2) score = 100;
+        else if(total===1) score = 10;
+        maxScore = Math.max(maxScore,score);
+    }
+    return maxScore;
+}
+
+function aiMove(){
+    let bestScore = -1;
+    let bestPos = {r:7,c:7};
+    for(let r=0;r<size;r++){
+        for(let c=0;c<size;c++){
+            if(board[r][c]!==0) continue;
+            board[r][c]=AI;
+            let attack = getScore(r,c,AI);
+            let defend = getScore(r,c,PLAYER);
+            board[r][c]=0;
+            let total;
+            // ========== 简单难度大幅削弱AI ==========
+            if(aiLevel === "easy"){
+                // AI几乎不主动进攻，防守能力很弱，大量随机落子
+                total = defend * 0.1 + Math.random() * 60;
+            }else if(aiLevel === "medium"){
+                total = Math.max(attack, defend*0.9);
+            }else if(aiLevel === "hard"){
+                total = Math.max(attack*1.1, defend);
+            }
+            if(total>bestScore){
+                bestScore=total;
+                bestPos={r,c};
+            }
+        }
+    }
+    return bestPos;
+}
+
+canvas.onclick = function(e){
+  if(gameOver) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const c = Math.round((mx-offset)/cell);
+  const r = Math.round((my-offset)/cell);
+  if(r<0||r>=size||c<0||c>=size||board[r][c]!==0) return;
+
+  board[r][c]=PLAYER;
+  whiteAudio.currentTime=0;
+  whiteAudio.play().catch(()=>{});
+  setTimeout(()=>{whiteAudio.pause();whiteAudio.currentTime=0},1000);
+
+  if(checkWin(r,c,PLAYER)){
+    gameOver=true;
+    tipDom.innerText="玩家白棋获胜！";
+    drawBoard();
+    winModal.style.display = "block";
+    return;
+  }
+
+  tipDom.innerText="轮到：AI黑棋思考中...";
+  drawBoard();
+
+  let delay = aiLevel==="hard" ? 700 : 400;
+  setTimeout(()=>{
+    const aiPos = aiMove();
+    board[aiPos.r][aiPos.c]=AI;
+    blackAudio.currentTime=0;
+    blackAudio.play().catch(()=>{});
+    setTimeout(()=>{blackAudio.pause();blackAudio.currentTime=0},1000);
+
+    if(checkWin(aiPos.r,aiPos.c,AI)){
+      gameOver=true;
+      tipDom.innerText="AI黑棋获胜！";
+    }else{
+      tipDom.innerText="轮到：玩家（白棋）";
+    }
+    drawBoard();
+  },delay);
+}
+
+drawBoard();
+</script>
+</body>
+</html>
